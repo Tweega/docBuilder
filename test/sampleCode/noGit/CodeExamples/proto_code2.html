@@ -1,0 +1,52 @@
+#[excerpt sample1]
+<pre>
+    <code>
+      THIS IS FROM CODE FILE 2, SAMPLE 1
+      // Create an instance of the VideoLambda SDK
+      const videoLambda = new VideoLambdaSdk(baseUrl());
+ 
+      // Create a LocalTsFile Media Node, with the ID 'tsFileInput'
+      ^let tsInputSettings = { id: "tsFileInput"
+      ^                      , fileName: "someLocalFile.ts"
+      ^                      , sourceName: "camera1" };
+      let tsInput = await videoLambda.input.localTsFile(tsInputSettings);
+ 
+      // Create a WebRTC Server Media Node with ID "webRtcOutput"
+      let webRtcSettings = { id: "webRtcOutput", numVideoStreams: 1 };
+      let rtcOutput = await videoLambda.output.localWebRTC(webRtcSettings);
+ 
+      // Subscribe the WebRTC Server to the output of the TS file
+      rtcOutput.subscribe([{ source: tsInput, sourceSelector: inputAVReady }]);
+    </code>
+  </pre>
+#[/excerpt sample1]
+#[excerpt sample2]
+THIS IS FROM CODE FILE 2, SAMPLE 2
+<pre>
+    <code>
+    rtcOutput.subscribe([{ source: tsInput, sourceSelector: inputAVReady }]);
+    </code>
+  </pre>
+<pre>
+    <code>
+    rtcOutput.subscribe([{ source: tsInput, sourceSelector: inputAVReady }]);
+    </code>
+  </pre>
+#[/excerpt sample2]
+#[excerpt sample3]
+THIS IS FROM CODE FILE 2, SAMPLE 3
+<pre>
+    <code>
+    const inputAVReady = (streams) => {
+    ^  const audio = audioStreamKeys(streams);
+    ^  const video = videoStreamKeys(streams);
+    ^  if (audio.length == 1 && video.length == 1) {
+    ^    return { audio: audio, video: video };
+    ^  }
+    ^  return undefined;
+    };
+    </code> 
+  </pre>
+#[/excerpt sample3]
+
+ 

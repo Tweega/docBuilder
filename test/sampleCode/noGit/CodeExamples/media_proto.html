@@ -1,0 +1,237 @@
+/**
+ <h2>VideoLambda™ - gRPC API Documentation</h2>
+
+ <p>
+   VideoLambda™ is a gRPC-based server that enables you to perform rich,
+   real-time manipulation of live media streams by writing simple code in a
+   language of your choice. This document describes the API and some of the core
+   concepts in VideoLambda™.
+ </p>
+
+ <h3>Core Concepts</h3>
+
+ <p>
+   VideoLambda™ systems are built by instantiating Media Nodes (which
+   encapsulate elements of media functionality) and joining those Media Nodes
+   together with subscriptions (so that the output of one Media Node can be used as
+   input for one or more downstream Media Nodes).
+ </p>
+
+ <h4>Media Nodes</h4>
+ <p>
+   Come in 3 flavours:
+ </p>
+ <ul>
+   <li>Source nodes (e.g. an RTMP Server, inbound WebRTC stream, testcard, local
+   file...)</li>
+   <li>Stream manipulation (e.g. overlaying a score or logo, setting up picture in
+   picture composition, resizing a video, changing the volume, merging audio
+   streams, encoding to H264...)</li>
+   <li>Output (e.g. setting up a stream recorder, or publication to a CDN / social
+   media platform)</li>
+ </ul>
+
+<h4>Subscriptions</h4>
+<p>
+  Media Nodes nodes do the work, subscriptions are what generate the data flows
+  between the Media Nodes. Subscriptions are dynamic and can be changed in real
+  time - for example the SourceSwitcher Media Node takes multiple suscriptions
+  and allows you to change, frame by frame if you really want, which of its
+  sources is provided to Media Nodes that are subscribed to it.
+</p>
+
+ <h3>My First Media Application</h3>
+ <p>
+   Due to the use of gRPC, VideoLambda's™ power is accessible from any
+   mainstream language. For TypeScript/JavaScript, VideoLambda™ also comes with
+   a client SDK that hides a lot of the gRPC details to allow you to focus on
+   the 'fun / interesting / real / business-centric' code. SDKs for other
+   languages are likely to emerge in the future, but for now, all examples in
+   this documentation are in TypeScript, making use of this SDK as this makes
+   the functionality clearer.
+ </p>
+
+ <p>
+   The TypeScript/JavaScript SDK source is freely available, so feel free to take a look
+   for inspiration if you are programming in a different language.
+ </p>
+
+ <p>
+   So let's jump in with a simple example. It reads from a local transport
+   stream file and delivers the contents using WebRTC - but hopefully that's
+   obvious from the code:
+ </p>
+[excerpt]proto_code2.html, sample1[/excerpt]
+ <p>
+   That's it - the above code runs - there are no hidden extras!
+ </p>
+
+ <p>
+   There are, perhaps, a couple of items in there that need further exploration
+   though.  In particular <code>sourceName</code> and <code>sourceSelector</code>.
+ </p>
+
+ <h4>A Little Background Info</h4>
+ <p>
+   In case you are not familiar with Transport Streams (TS), one TS can contain
+   multiple programs (think BBC1, BBC2 etc...) and each program can contain
+   multiple streams of data. Typically that's one video stream and one audio stream but
+   it can be zero or more video / audio / subtitle / data / ... streams. Multiple
+   audios are certainly very common (English and Spanish audio / commentary and
+   stadium sound separately etc.)
+ </p>
+
+ <p>
+   If you are manipulating a media stream, it is also common to have multiple
+   versions of the same media - for example "high", "medium" and "low" video
+   qualities in an ABR ladder. It's the same content - just different renditions
+   of it.
+ </p>
+
+ <p>
+   That's how VideoLambda™ identifies a Stream - it is a combination of all of
+   the above - plus a Source Name provided by the developer ("camera1" in the
+   example above). The source name allow it to distinguish between various
+   sources of the same type (e.g. multiple WebRTC inputs).
+ </p>
+ <p>
+   The good news is, you now know how VideoLambda™ describes <i>all</i> streams.
+   TS is as complex as it gets and we use the below naming strategy for all
+   streams regardless of whether they are from TS, WebRTC, SRT, MP4, fMP4...
+ </p>
+
+ <h3>Stream Names</h3>
+ <p>
+   A Stream Name consists of 4 parts:
+ </p>
+
+ <h4>SourceName</h4>
+ <p>
+   A string provided by your code. For example, "camera1", "Studio RTMP Input",
+   "Bob's SRT Encoder"
+ </p>
+
+ <h4>ProgramNumber</h4>
+ <p>
+   A number identifying the program within the source. This exists to support
+   multi-program capable sources, such as a multi-program transport stream, in
+   which case it is the source that allocates the ProgramNumber. For
+   single-program sources such as RTMP, the ProgramNumber is always '1'.
+ </p>
+
+ <h4>StreamId</h4>
+ <p>
+   A number identifying the stream within the program. This is allocated by the
+   source.
+ </p>
+
+ <h4>RenditionName</h4>
+ <p>
+   A string provided by your code. Any media may exist in multiple renditions
+   &ndash; a good example is that of an ABR ladder for a video stream, where
+   there are many streams of differing qualities, but they are all of the same
+   content. In this example, your code may choose to name the renditions "low",
+   "medium", or "high". For streams received from a source Media Node where no
+   additional configuration has been provided, the RenditionName is "default".
+ </p>
+
+ <h3>Context</h3>
+ <p>
+   About the last thing to discuss from the code sample is
+   what <code>sourceSelector: inputAVReady</code> is all about?
+ </p>
+
+ <p>
+   As described above, each Media Node can have multiple streams flowing into
+   and out of it. It is important for your code to be able to discover which
+   streams exist and when. In particular, to subscribe one Media Node (the
+   downstream node) to another Media Node (the upstream node), your code needs
+   to identify exactly which streams from the upstream node are required. This
+   is enabled via Context messages that describe the available streams
+   (identified by their StreamKeys).
+ </p>
+
+ <p>
+   These Context messages are sent back to your code whenever the streams on a
+   Media Node's input or output change. For example, with an SRT input, at the
+   start of the connection the SRT Media Node will have no streams available on
+   its output. As the source encoder (i.e., the remote 'other end' of the SRT
+   connection) sends it content, metadata is extracted from the stream
+   (specifically a Program Map Table in the case of SRT) and VideoLambda makes
+   that information available to your code by sending you a Context message. For
+   each stream in the source that Context message contains:
+ </p>
+
+ <ul>
+   <li>the StreamKey</li>
+   <li>the stream type (e.g. audio/video)</li>
+   <li>relevant stream metadata (e.g, sample rate/resolution)</li>
+ </ul>
+
+ <p>
+   It is very common to make decisions based on this Context information. In
+   particular whenever Context changes you might want to consider how your
+   subscriptions between your Media Nodes are set up (start publishing, stop
+   publishing, switch from one camera to another...) as now the code knows what
+   StreamKeys are available.
+ </p>
+
+ <p>
+   When a Context message is sent, VideoLambda pauses the output of the Media
+   Node whose context has changed and does not restart it until your code
+   acknowledges the change. That way, subscriptions can be set up in such a way
+   as to not drop any media and to make frame accurate changes to your outputs
+   in response to changing circumstances.
+ </p>
+
+ <p>
+   This is such a common use case that it is encapsulated within the JavaScript
+   SDK. Let's take a quick look at the <code>inputAVReady</code> usage from
+   our example:
+ </p>
+
+[excerpt]proto_code.html, sample2[/excerpt]
+ 
+ <p>
+   This is saying "Subscribe my rtcOutput Media Node to the selected sources
+   from the tsInput Media Node, where inputAVReady is the function that decides
+   which Stream Ids (if any) we want". VideoLambda™ will call the given function
+   with the latest Context information whenever the Context changes so you are
+   making your decision based on the very latest information. It is the job of
+   your function to return the StreamKeys that you want to subscribe to; the
+   VideoLambda™ SDK takes care of the required acknowledgements and VideoLambda™
+   itself takes care of all the underlying media manipulations / packaging
+   changes etc that need to happen to fulfill that request.
+ </p>
+
+ <p>
+   Let's take a quick look at the code behind <code>inputAVReady</code>.
+ </p>
+
+[excerpt]proto_code.html, sample3[/excerpt]
+ 
+ <p>
+   We are extracting all the audio streams and video streams from the source
+   Context and if we have exactly 1 audio stream and 1 video stream we tell
+   VideoLambda™ we want (in this case <code>rtcOutput</code>) to subscribe to
+   both for them. If there is any other number of streams (either more or fewer)
+   then we disable the subscription. It's our TS file so we know that's fine but
+   in "real world" scenarios it's very easy to code the correct logic for your
+   business.
+ </p>
+
+ <p>
+   For example say your source goes from having a single audio in it to now
+   having two. You could walk through the language descriptors (also in the
+   context) and if there is a Spanish language audio, subscribe to it; failing that
+   choose an English stream and failing that use the stream with the lowest
+   StreamId (or swap to a silence, or stop the publication, or send an email,
+   or... It's your business rules and your code - go wild!).
+ </p>
+
+ <p>
+   All the function calls that can be made into VideoLambda™ can be found in the
+   gRPC Media service below. That's probably the best place to start...
+ </p>
+
+ */
