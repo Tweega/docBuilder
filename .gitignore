@@ -3,3 +3,4 @@ __pychache__/
 __pycache__/
 .vscode/
 test/sampleCode/withGit/CodeExamples
+test/output/

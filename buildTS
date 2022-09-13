@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+
+npm --workspace=media-test run build
+if [ "$#" -eq 0 ]; then
+  echo "Build failed"
+  exit 1
+fi
+

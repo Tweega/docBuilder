@@ -110,11 +110,12 @@ def runBuilder(args):
                 errorState = f"Version: {PROGRAM}: {VERSION}"
             elif opt in ('-h', '--help'):
                 usageLines = ["usage", "programName.py",
+                "Probably easiest to edit docBuilderHelper.py and run that instead"
                 "options: ", 
                 "-c, --codepath : the local path to code repository. (one, and only one, required from --gitrepo or --codepath).  Alternatively set env variable NORSK_SAMPLE_CODE_PATH",
                 "-g, --gitrepo: the url to git repo to extract code examples from. (one, and only one, required from --gitrepo or --codepath).  --templateFile in this case must be complete file path.  Alternatively set env variable NORSK_SAMPLE_CODE_GIT_URL",
                 "-p, --gitpull: only used with --codepath, when that directory is a git repo",
-                "-t, --template: the file into which excerpts should be inserted.  This can be complete path, otherwise assumed to be in --repopath (required)",
+                "-t, --template: the file into which excerpts should be inserted.  This can be complete path, otherwise assumed to be in --codepath (required)",
                 "-o, --outputpath: directory to save output files into(required). Alternatively set env variable NORSK_SAMPLE_OUTPUT_PATH",
                 "-s, --strip: Strips files listed in template file of [excerpt] markup and copies to --outputpath directory.",
                 "-v, --version: prints version of this program (the program does not execute when this option is provided)",
@@ -158,7 +159,7 @@ def runBuilder(args):
 
         if repoPath:       
             if repoGitUrl:
-                errorState = "Only ONE of --gitrepo or --repopath should be provided"
+                errorState = "Only ONE of --gitrepo or --codepath should be provided"
 
         else:
             if repoGitUrl:
@@ -168,7 +169,7 @@ def runBuilder(args):
                 useTempDir = True
             
             else:    
-                errorState = "One of --gitrepo or --repopath must be provided"
+                errorState = "One of --gitrepo or --codepath must be provided"
 
     if errorState is None:    
         if not templateFile:
@@ -272,7 +273,7 @@ def runBuilder(args):
                         # add excerpt id to openExcerptsMap
                         openExcerpt = openExcerptsMap.get(excerptKey)
                         if openExcerpt: 
-                            msg = (f"openExcerpt: {excerptKey} already exists")
+                            msg = (f"openExcerpt: {excerptKey} already exists.  You may have meant to close the excerpt, but forgor the leading slash")
                             errorState = msg
                         else: 
                             # check that this excerptID is not in the closed map
