@@ -58,41 +58,33 @@ if __name__ == "__main__":
     if strip:
         options.append("--strip")
     
-    cancel = False
-
-    if strip and len(buildScriptFile) > 0:
-        if exists(outputPath):
-            deleteOutputPath = input(f"OutputPath will be deleted, continue (Y/N)?")
-            if deleteOutputPath in ['Y', 'y']:                
-                print (f"removing folder {outputPath}")
-            else:
-                cancel = True
-    
-    if not cancel:            
+    # this should be done in the docBuilder
+    if exists(outputPath) and exists(codePath) and strip and buildScriptFile:    
         # copy over all code to output
-        if exists(outputPath) and exists(codePath):    
-            shutil.copytree(codePath, outputPath)
+        src_files = os.listdir(codePath)
+        for file_name in src_files:
+            full_file_name = os.path.join(codePath, file_name)
+            if os.path.isfile(full_file_name):
+                shutil.copy(full_file_name, outputPath)
 
-        res = docBuilder.runBuilder(options)
-        if res is None:
-            if exists(templatePath):
-                print("Success")
-                if strip and len(buildScriptFile) > 0:
-                    if "/" in buildScriptFile:
-                        buildScriptPath = buildScriptFile                                   
-                    else:
-                        buildScriptPath = os.path.join(codePath, buildScriptFile)
-                    
-                    if exists(buildScriptPath):
-                        # copy this file over to
-                        result = subprocess.run(["echo", "Hello, World!"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    res = docBuilder.runBuilder(options)
+
+    if res is None:
+        if exists(templatePath):
+            print("Success")
+            if strip and len(buildScriptFile) > 0:
+                if "/" in buildScriptFile:
+                    buildScriptPath = buildScriptFile                                   
+                else:
+                    buildScriptPath = os.path.join(codePath, buildScriptFile)
+                
+                if exists(buildScriptPath):
+                    # copy this file over to output and run it'
+                    result = subprocess.run(["echo", "Hello, World!"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     print(result.stdout)
 
-                # if strip option specified then perhaps execute build on output path
-            else:
-                print(f"FAILED. Output file not found in {templatePath}")
-        else :
-            print(res)
-    else:
-        print("Cancelled")
-
+            # if strip option specified then perhaps execute build on output path
+        else:
+            print(f"FAILED. Output file not found in {templatePath}")
+    else :
+        print(res)
