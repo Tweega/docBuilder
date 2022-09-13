@@ -20,7 +20,7 @@ if __name__ == "__main__":
     verbose = False
     strip = True  # strips code sample files of [Example] markup and copies to outputPath
     doGitPull = False
-    buildScriptFile = "ljhj"    # strip needs to be true.  Assumed to be in codePath if path not specified.  If found, copies all files and subdirectories from codePath to output and runs this script in bash shell
+    buildScriptFile = "../../norsk/client/run-demo2"    # strip needs to be true.  Assumed to be in codePath if path not specified.  If found, will be copied to parent of output path and  executed
     
 
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     options = ["--codepath", codePath, "--outputpath", outputPath, "--template", templateFile]
     
-    if len(gitURL) > 0:
+    if gitURL:
         options.append("--gitrepo")
         options.append(gitURL)
 
@@ -58,31 +58,51 @@ if __name__ == "__main__":
     if strip:
         options.append("--strip")
     
-    # this should be done in the docBuilder
-    if exists(outputPath) and exists(codePath) and strip and buildScriptFile:    
-        # copy over all code to output
-        src_files = os.listdir(codePath)
-        for file_name in src_files:
-            full_file_name = os.path.join(codePath, file_name)
-            if os.path.isfile(full_file_name):
-                shutil.copy(full_file_name, outputPath)
-
+    
     res = docBuilder.runBuilder(options)
 
     if res is None:
         if exists(templatePath):
             print("Success")
-            if strip and len(buildScriptFile) > 0:
-                if "/" in buildScriptFile:
-                    buildScriptPath = buildScriptFile                                   
+            buildScriptPath = buildScriptFile                                   
+            
+            if strip and buildScriptFile:
+                if ("/" in buildScriptFile):
+                    revStr = buildScriptFile[::-1]
+                    x = revStr.find("/")
+                    s = revStr[0:x]
+                    buildScriptFile = s[::-1]
+
                 else:
                     buildScriptPath = os.path.join(codePath, buildScriptFile)
                 
-                if exists(buildScriptPath):
-                    # copy this file over to output and run it'
-                    result = subprocess.run(["echo", "Hello, World!"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    print(result.stdout)
+                buildScriptPath = os.path.abspath(buildScriptPath)
+                if os.path.isfile(buildScriptPath):
+                    # copy this file over to output parent directory and run it'
+                    revStr = outputPath[::-1]
+                    slashPos = revStr.find("/")
+                    pathLen = len(outputPath) - slashPos
+                    buildTargetPath = outputPath[0:pathLen]
+                    
+                    if os.path.isdir(buildTargetPath):
+                        deployedScript = os.path.join(buildTargetPath, buildScriptFile)
 
+                        shutil.copy(buildScriptPath, deployedScript)  
+                        
+                        if os.path.isfile(deployedScript):    
+                            try:                                       
+                                result = subprocess.run(['sh', deployedScript], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                print(f"Result:s {result.stdout}")
+                            except Exception as e:
+                                print(f"template was processed successfully  but could not execute script at: {deployedScript}")
+                                print(f"Error: {e}")
+                                
+                    else:
+                        print(f"template was processed successfully  but could not find build builder file  {buildTargetPath}")
+                        
+                else:
+                    print(f"template was processed successfully  but could not find build script file in  {buildScriptPath}")
+                
             # if strip option specified then perhaps execute build on output path
         else:
             print(f"FAILED. Output file not found in {templatePath}")
