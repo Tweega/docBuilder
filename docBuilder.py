@@ -4,6 +4,8 @@ import os
 import re
 import shutil
 import tempfile
+import subprocess
+
 from git import Repo
 from os.path import exists
 
@@ -28,6 +30,7 @@ def runBuilder(args):
     outputPath = ""
     repoGitUrl = ""
     templateFile = ""
+    buildScriptFile = ""
     verbose = False
     strip = False
     gitPull = False
@@ -81,12 +84,13 @@ def runBuilder(args):
     vPrint (f'ARGV: {args}')
 
     try: 
-        options, remainder = getopt.getopt(args, 'c:g:pt:o:svhq', ['codepath=', 
+        options, remainder = getopt.getopt(args, 'c:g:pt:o:sb:vhq', ['codepath=', 
                                                             'gitrepo=',
                                                             'gitpull',
                                                             'template=',
                                                             'outputpath=',
                                                             'strip',
+                                                            'buildscript=',
                                                             'version',
                                                             'help',
                                                             'verbose',
@@ -98,8 +102,8 @@ def runBuilder(args):
                 repoGitUrl = arg
             elif opt in ('-p', '--gitpull'):
                 gitPull = True
-            elif opt in ('-b', '--gitbranch'):
-                repoGitBranch = arg
+            elif opt in ('-b', '--buildscript'):
+                buildScriptFile = arg
             elif opt in ('-t', '--template'):
                 templateFile = arg            
             elif opt in ('-o', '--outputpath'):
@@ -118,6 +122,7 @@ def runBuilder(args):
                 "-t, --template: the file into which excerpts should be inserted.  This can be complete path, otherwise assumed to be in --codepath (required)",
                 "-o, --outputpath: directory to save output files into(required). Alternatively set env variable NORSK_SAMPLE_OUTPUT_PATH",
                 "-s, --strip: Strips files listed in template file of [excerpt] markup and copies to --outputpath directory.",
+                "-b, --buildscript: bash script to run after stripping code files.  Script file copied into parent of outputpath. Either a complete path or codepath is assumed.",
                 "-v, --version: prints version of this program (the program does not execute when this option is provided)",
                 "-h, --help: displays this usage text (the program does not execute when this option is provided)"
                 ]
@@ -143,6 +148,7 @@ def runBuilder(args):
     vPrint (f"templateFile: {templateFile}")
     vPrint (f"outputPath: {outputPath}")
     vPrint (f"strip: {strip}")
+    vPrint (f"buildscript: {buildScriptFile}")
     vPrint (f"verbose: {verbose}")
 
     if errorState is None:    
@@ -372,6 +378,54 @@ def runBuilder(args):
                             outPath = os.path.join(outputPath, codeFile)
                             vPrint(f"Saving stripped file to {outPath}")
                             errorState = saveTextFile(strippedText, outPath)
+
+                    # if script building needed
+                    if errorState is None:
+                        if exists(templateFilePath):
+                            buildScriptPath = buildScriptFile                                   
+                            
+                            if strip and buildScriptFile:
+                                if ("/" in buildScriptFile):
+                                    revStr = buildScriptFile[::-1]
+                                    x = revStr.find("/")
+                                    s = revStr[0:x]
+                                    buildScriptFile = s[::-1]
+
+                                else:
+                                    buildScriptPath = os.path.join(repoPath, buildScriptFile)
+                                
+                                buildScriptPath = os.path.abspath(buildScriptPath)
+                                if os.path.isfile(buildScriptPath):
+                                    # copy this file over to output parent directory and run it'
+                                    revStr = outputPath[::-1]
+                                    slashPos = revStr.find("/")
+                                    pathLen = len(outputPath) - slashPos
+                                    buildTargetPath = outputPath[0:pathLen]
+                                    
+                                    if os.path.isdir(buildTargetPath):
+                                        deployedScript = os.path.join(buildTargetPath, buildScriptFile)
+                                        if not buildScriptPath == deployedScript:
+                                            shutil.copy(buildScriptPath, deployedScript)  
+                                        
+                                        if os.path.isfile(deployedScript):    
+                                            vPrint(f"buildTargetPath: {buildTargetPath}")
+                                            try:                                       
+                                                result = subprocess.run(['sh', deployedScript], cwd=buildTargetPath, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                                                vPrint(f"Result: {result.stdout}")
+                                                vPrint(f"Result: {result.stderr}")
+                                            except Exception as e:
+                                                errorState = (f"template was processed successfully  but could not execute script at: {deployedScript}\n Error:  {e}")
+                                                
+                                    else:
+                                        errorState = (f"template was processed successfully  but could not find build builder file  {buildTargetPath}")
+                                        
+                                else:
+                                    errorState = (f"template was processed successfully  but could not find build script file in  {buildScriptPath}")
+                                
+                            # if strip option specified then perhaps execute build on output path
+                        else:
+                            errorState = (f"FAILED. Output file not found in {templateFilePath}")
+                
 
 
     if useTempDir:
